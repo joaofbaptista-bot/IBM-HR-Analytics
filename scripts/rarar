@@ -1,1 +1,83 @@
+/* ===============================================================
+   Project: AIDAPT – IBM HR Analytics
+   Purpose: Create database and load IBM HR CSV into staging table
+   =============================================================== */
 
+---------------------------------------------------------------
+-- 1. Create database if it does not exist
+---------------------------------------------------------------
+IF DB_ID('IBM_ANALYTICS') IS NULL
+BEGIN
+    CREATE DATABASE IBM_ANALYTICS;
+END;
+GO
+
+USE IBM_ANALYTICS;
+GO
+
+---------------------------------------------------------------
+-- 2. Create staging schema
+---------------------------------------------------------------
+IF SCHEMA_ID('stg') IS NULL
+    EXEC ('CREATE SCHEMA stg');
+GO
+
+---------------------------------------------------------------
+-- 3. Create staging table (generic / raw import)
+--    IMPORTANT: column count MUST match CSV columns
+---------------------------------------------------------------
+IF OBJECT_ID('stg.ibm_hr_raw', 'U') IS NULL
+BEGIN
+    CREATE TABLE stg.ibm_hr_raw (
+        Age NVARCHAR(50),
+        Attrition NVARCHAR(50),
+        BusinessTravel NVARCHAR(50),
+        DailyRate NVARCHAR(50),
+        Department NVARCHAR(50),
+        DistanceFromHome NVARCHAR(50),
+        Education NVARCHAR(50),
+        EducationField NVARCHAR(50),
+        EmployeeCount NVARCHAR(50),
+        EmployeeNumber NVARCHAR(50),
+        EnvironmentSatisfaction NVARCHAR(50),
+        Gender NVARCHAR(50),
+        HourlyRate NVARCHAR(50),
+        JobInvolvement NVARCHAR(50),
+        JobLevel NVARCHAR(50),
+        JobRole NVARCHAR(50),
+        JobSatisfaction NVARCHAR(50),
+        MaritalStatus NVARCHAR(50),
+        MonthlyIncome NVARCHAR(50),
+        MonthlyRate NVARCHAR(50),
+        NumCompaniesWorked NVARCHAR(50),
+        Over18 NVARCHAR(50),
+        OverTime NVARCHAR(50),
+        PercentSalaryHike NVARCHAR(50),
+        PerformanceRating NVARCHAR(50),
+        RelationshipSatisfaction NVARCHAR(50),
+        StandardHours NVARCHAR(50),
+        StockOptionLevel NVARCHAR(50),
+        TotalWorkingYears NVARCHAR(50),
+        TrainingTimesLastYear NVARCHAR(50),
+        WorkLifeBalance NVARCHAR(50),
+        YearsAtCompany NVARCHAR(50),
+        YearsInCurrentRole NVARCHAR(50),
+        YearsSinceLastPromotion NVARCHAR(50),
+        YearsWithCurrManager NVARCHAR(50)
+    );
+END;
+GO
+
+---------------------------------------------------------------
+-- 4. Load CSV into staging table
+---------------------------------------------------------------
+BULK INSERT stg.ibm_hr_raw
+FROM 'C:\Users\JAB\Desktop\Aidapt\Projecto\IBM RH.csv'
+WITH (
+    FIRSTROW = 2,              -- Skip header
+    FIELDTERMINATOR = ',',
+    ROWTERMINATOR = '0x0d0a',  -- Windows line ending
+    TABLOCK,
+    CODEPAGE = '65001'         -- UTF-8
+);
+GO

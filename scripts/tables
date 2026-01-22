@@ -1,0 +1,139 @@
+USE IBM_ANALYTICS;
+GO
+
+/* =======================
+   LOOKUPS
+   ======================= */
+
+IF OBJECT_ID('dbo.DEPARTMENT','U') IS NULL
+CREATE TABLE dbo.DEPARTMENT(
+    DepartmentID INT IDENTITY PRIMARY KEY,
+    DepartmentName NVARCHAR(100) NOT NULL UNIQUE
+);
+
+IF OBJECT_ID('dbo.JOB_ROLE','U') IS NULL
+CREATE TABLE dbo.JOB_ROLE(
+    JobRoleID INT IDENTITY PRIMARY KEY,
+    JobRoleName NVARCHAR(100) NOT NULL UNIQUE
+);
+
+-- EDUCATION: junta Education (nível) + EducationField (área)
+IF OBJECT_ID('dbo.EDUCATION','U') IS NULL
+CREATE TABLE dbo.EDUCATION(
+    EducationID INT IDENTITY PRIMARY KEY,
+    EducationLevel INT NULL,
+    EducationFieldName NVARCHAR(100) NULL,
+    CONSTRAINT UQ_Education UNIQUE (EducationLevel, EducationFieldName)
+);
+
+/* =======================
+   EMPLOYEE (entity)
+   ======================= */
+
+IF OBJECT_ID('dbo.EMPLOYEE','U') IS NULL
+CREATE TABLE dbo.EMPLOYEE(
+    EmployeeNumber INT NOT NULL PRIMARY KEY,
+    Age INT NULL,
+    Gender NVARCHAR(30) NULL,
+    MaritalStatus NVARCHAR(50) NULL,
+    Over18 NVARCHAR(10) NULL
+);
+
+/* =======================
+   HISTORY TABLES (SCD2)
+   ======================= */
+
+IF OBJECT_ID('dbo.EMPLOYEE_JOB','U') IS NULL
+CREATE TABLE dbo.EMPLOYEE_JOB(
+    EmployeeNumber INT NOT NULL,
+    DepartmentID INT NOT NULL,
+    JobRoleID INT NOT NULL,
+
+    StartDate DATE NOT NULL,
+    EndDate DATE NULL,
+
+    CONSTRAINT PK_EmployeeJob PRIMARY KEY (EmployeeNumber, StartDate),
+    CONSTRAINT FK_EJ_Employee FOREIGN KEY (EmployeeNumber) REFERENCES dbo.EMPLOYEE(EmployeeNumber),
+    CONSTRAINT FK_EJ_Department FOREIGN KEY (DepartmentID) REFERENCES dbo.DEPARTMENT(DepartmentID),
+    CONSTRAINT FK_EJ_JobRole FOREIGN KEY (JobRoleID) REFERENCES dbo.JOB_ROLE(JobRoleID),
+    CONSTRAINT CK_EJ_Dates CHECK (EndDate IS NULL OR EndDate > StartDate)
+);
+
+-- garante só 1 linha "ativa" por empregado
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='UX_EJ_Current' AND object_id=OBJECT_ID('dbo.EMPLOYEE_JOB'))
+CREATE UNIQUE INDEX UX_EJ_Current ON dbo.EMPLOYEE_JOB(EmployeeNumber)
+WHERE EndDate IS NULL;
+
+
+IF OBJECT_ID('dbo.EMPLOYEE_EDUCATION','U') IS NULL
+CREATE TABLE dbo.EMPLOYEE_EDUCATION(
+    EmployeeNumber INT NOT NULL,
+    EducationID INT NOT NULL,
+
+    StartDate DATE NOT NULL,
+    EndDate DATE NULL,
+
+    CONSTRAINT PK_EmployeeEducation PRIMARY KEY (EmployeeNumber, StartDate),
+    CONSTRAINT FK_EE_Employee FOREIGN KEY (EmployeeNumber) REFERENCES dbo.EMPLOYEE(EmployeeNumber),
+    CONSTRAINT FK_EE_Education FOREIGN KEY (EducationID) REFERENCES dbo.EDUCATION(EducationID),
+    CONSTRAINT CK_EE_Dates CHECK (EndDate IS NULL OR EndDate > StartDate)
+);
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='UX_EE_Current' AND object_id=OBJECT_ID('dbo.EMPLOYEE_EDUCATION'))
+CREATE UNIQUE INDEX UX_EE_Current ON dbo.EMPLOYEE_EDUCATION(EmployeeNumber)
+WHERE EndDate IS NULL;
+
+
+IF OBJECT_ID('dbo.SALARY','U') IS NULL
+CREATE TABLE dbo.SALARY(
+    EmployeeNumber INT NOT NULL,
+
+    DailyRate INT NULL,
+    HourlyRate INT NULL,
+    MonthlyIncome INT NULL,
+    MonthlyRate INT NULL,
+    PercentSalaryHike INT NULL,
+    StockOptionLevel INT NULL,
+
+    StartDate DATE NOT NULL,
+    EndDate DATE NULL,
+
+    CONSTRAINT PK_Salary PRIMARY KEY (EmployeeNumber, StartDate),
+    CONSTRAINT FK_Salary_Employee FOREIGN KEY (EmployeeNumber) REFERENCES dbo.EMPLOYEE(EmployeeNumber),
+    CONSTRAINT CK_Salary_Dates CHECK (EndDate IS NULL OR EndDate > StartDate)
+);
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='UX_Salary_Current' AND object_id=OBJECT_ID('dbo.SALARY'))
+CREATE UNIQUE INDEX UX_Salary_Current ON dbo.SALARY(EmployeeNumber)
+WHERE EndDate IS NULL;
+
+
+/* =======================
+   EVENT TABLES (by snapshot date)
+   ======================= */
+
+IF OBJECT_ID('dbo.PERFORMANCE','U') IS NULL
+CREATE TABLE dbo.PERFORMANCE(
+    EmployeeNumber INT NOT NULL,
+    PerformanceRating INT NULL,
+    JobInvolvement INT NULL,
+    TrainingTimesLastYear INT NULL,
+    EffectiveDate DATE NOT NULL,
+
+    CONSTRAINT PK_Performance PRIMARY KEY (EmployeeNumber, EffectiveDate),
+    CONSTRAINT FK_Performance_Employee FOREIGN KEY (EmployeeNumber) REFERENCES dbo.EMPLOYEE(EmployeeNumber)
+);
+
+IF OBJECT_ID('dbo.SATISFACTION','U') IS NULL
+CREATE TABLE dbo.SATISFACTION(
+    EmployeeNumber INT NOT NULL,
+    JobSatisfaction INT NULL,
+    EnvironmentSatisfaction INT NULL,
+    RelationshipSatisfaction INT NULL,
+    WorkLifeBalance INT NULL,
+    EffectiveDate DATE NOT NULL,
+
+    CONSTRAINT PK_Satisfaction PRIMARY KEY (EmployeeNumber, EffectiveDate),
+    CONSTRAINT FK_Satisfaction_Employee FOREIGN KEY (EmployeeNumber) REFERENCES dbo.EMPLOYEE(EmployeeNumber)
+);
+GO
